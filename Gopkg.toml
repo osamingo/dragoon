@@ -1,0 +1,19 @@
+[[constraint]]
+  branch = "master"
+  name = "github.com/icrowley/fake"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/mjibson/goon"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/oklog/ulid"
+
+[[constraint]]
+  branch = "master"
+  name = "google.golang.org/appengine"
+
+[[constraint]]
+  name = "gopkg.in/go-playground/validator.v9"
+  version = "9.7.0"
