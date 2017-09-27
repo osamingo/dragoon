@@ -3,6 +3,7 @@ package dragoon
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -37,7 +38,10 @@ type (
 	}
 )
 
-var s *Spear
+var (
+	inst aetest.Instance
+	s    *Spear
+)
 
 func (e *Entity) GetID() string {
 	return e.ID
@@ -89,7 +93,25 @@ func run(m *testing.M) int {
 		os.Exit(1)
 	}
 
+	inst, err = aetest.NewInstance(&aetest.Options{
+		AppID: "dragoon-test",
+		StronglyConsistentDatastore: true,
+	})
+	if err != nil {
+		fmt.Fprint(os.Stderr, "failed to generate test instance - error =", err.Error())
+		os.Exit(1)
+	}
+	defer inst.Close()
+
 	return m.Run()
+}
+
+func newTestContext() (context.Context, error) {
+	req, err := inst.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		return nil, err
+	}
+	return appengine.NewContext(req), nil
 }
 
 func TestNewSpear(t *testing.T) {
@@ -104,16 +126,14 @@ func TestNewSpear(t *testing.T) {
 
 func TestSpear(t *testing.T) {
 
-	c, cancel, err := aetest.NewContext()
+	c, err := newTestContext()
 	require.NoError(t, err)
-	defer cancel()
 	s.FlushLocalCache(c)
 
 	src := &Entity{
 		Name: fake.FullName(),
 	}
 	require.NoError(t, s.Put(c, src))
-	time.Sleep(time.Second)
 
 	cnt, err := s.Count(c, datastore.NewQuery(goon.FromContext(c).Kind(Entity{})))
 	require.NoError(t, err)
@@ -134,9 +154,8 @@ func TestSpear(t *testing.T) {
 
 func TestSpear_Multi(t *testing.T) {
 
-	c, cancel, err := aetest.NewContext()
+	c, err := newTestContext()
 	require.NoError(t, err)
-	defer cancel()
 	s.FlushLocalCache(c)
 
 	src := []interface{}{
@@ -147,6 +166,7 @@ func TestSpear_Multi(t *testing.T) {
 			Name: fake.FullName(),
 		},
 	}
+
 	require.NoError(t, s.PutMulti(c, src...))
 
 	id1 := src[0].(Identifier).GetID()
