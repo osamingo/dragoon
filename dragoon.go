@@ -61,8 +61,8 @@ func (s *Spear) GetAll(c context.Context, q *datastore.Query, es interface{}) er
 	return err
 }
 
-func (s *Spear) RunInTransaction(c context.Context, f func(tg *goon.Goon) error, opts *datastore.TransactionOptions) error {
-	return goon.FromContext(c).RunInTransaction(f, opts)
+func (s *Spear) RunInTransaction(c context.Context, f func(g *goon.Goon) error, o *datastore.TransactionOptions) error {
+	return goon.FromContext(c).RunInTransaction(f, o)
 }
 
 func (s *Spear) FlushLocalCache(c context.Context) {

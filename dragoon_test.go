@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/icrowley/fake"
+	"github.com/mjibson/goon"
 	"github.com/oklog/ulid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ import (
 type (
 	Entity struct {
 		_kind       string    `datastore:"-" goon:"kind,TestKind"`
-		ID          string    `datastore:"-" valid:"required" goon:"id" `
+		ID          string    `datastore:"-" valid:"len=26" goon:"id" `
 		Name        string    `datastore:"name" valid:"required"`
 		Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
 		CreatedAt   time.Time `datastore:"created_at"`
@@ -36,9 +37,7 @@ type (
 	}
 )
 
-var (
-	s *Spear
-)
+var s *Spear
 
 func (e *Entity) GetID() string {
 	return e.ID
@@ -100,18 +99,25 @@ func TestNewSpear(t *testing.T) {
 	_, err = NewSpear(nil, &V{V: validator.New()})
 	require.Error(t, err)
 	_, err = NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, nil)
-	require.NoError(t, err)
+	require.Error(t, err)
 }
 
 func TestSpear(t *testing.T) {
+
 	c, cancel, err := aetest.NewContext()
 	require.NoError(t, err)
 	defer cancel()
+	s.FlushLocalCache(c)
 
 	src := &Entity{
 		Name: fake.FullName(),
 	}
 	require.NoError(t, s.Put(c, src))
+	time.Sleep(time.Second)
+
+	cnt, err := s.Count(c, datastore.NewQuery(goon.FromContext(c).Kind(Entity{})))
+	require.NoError(t, err)
+	assert.Equal(t, 1, cnt)
 
 	dst := &Entity{
 		ID: src.GetID(),
@@ -120,7 +126,10 @@ func TestSpear(t *testing.T) {
 	assert.EqualValues(t, src, dst)
 
 	require.NoError(t, s.Delete(c, dst))
-	require.EqualError(t, s.Get(c, &Entity{ID: dst.ID}), datastore.ErrNoSuchEntity.Error())
+	err = s.RunInTransaction(c, func(g *goon.Goon) error {
+		return s.Get(c, &Entity{ID: dst.ID})
+	}, nil)
+	require.EqualError(t, err, datastore.ErrNoSuchEntity.Error())
 }
 
 func TestSpear_Multi(t *testing.T) {
@@ -128,6 +137,7 @@ func TestSpear_Multi(t *testing.T) {
 	c, cancel, err := aetest.NewContext()
 	require.NoError(t, err)
 	defer cancel()
+	s.FlushLocalCache(c)
 
 	src := []interface{}{
 		&Entity{
@@ -152,6 +162,10 @@ func TestSpear_Multi(t *testing.T) {
 	require.NoError(t, s.GetMulti(c, dst))
 	assert.EqualValues(t, src[0], dst[0])
 	assert.EqualValues(t, src[1], dst[1])
+
+	dst = []*Entity{}
+	err = s.GetAll(c, datastore.NewQuery(goon.FromContext(c).Kind(Entity{})), &dst)
+	require.NoError(t, err)
 
 	require.NoError(t, s.DeleteMulti(c, []interface{}{dst[0], dst[1]}...))
 	err = s.GetMulti(c, []*Entity{{ID: id1}, {ID: id2}})
