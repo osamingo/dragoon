@@ -1,0 +1,34 @@
+sudo: false
+
+language: go
+go:
+  - 1.8.3
+
+cache:
+  directories:
+    - "$HOME/go_appengine"
+
+env:
+  global:
+    - PATH=${HOME}/go_appengine:${PATH}
+
+before_install:
+  - if [ ! `which goapp` ]; then
+      wget -q https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.58.zip -O ${HOME}/go_appengine.zip;
+      unzip -q -u -d ${HOME} ${HOME}/go_appengine.zip;
+    fi
+  - go get -u github.com/golang/dep/cmd/dep github.com/golang/lint/golint honnef.co/go/tools/cmd/staticcheck
+
+install:
+  - dep ensure -v
+
+before_script:
+  - go vet
+  - golint
+  - staticcheck
+
+script:
+  - go test -race -covermode=atomic -coverprofile=coverage.txt
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
