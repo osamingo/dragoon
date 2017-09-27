@@ -18,43 +18,49 @@ type (
 		SetCreatedAt(time.Time)
 		SetUpdatedAt(time.Time)
 	}
+	IdentifyGenerator interface {
+		Generate(context.Context) (string, error)
+	}
+	Validator interface {
+		Validate(context.Context, interface{}) error
+	}
 	Spear struct {
-		GenerateID func(context.Context) (string, error)
-		Validation func(context.Context, interface{}) error
+		IdentifyGenerator IdentifyGenerator
+		Validator         Validator
 	}
 )
 
-func (d *Spear) Get(c context.Context, e interface{}) error {
+func (s *Spear) Get(c context.Context, e interface{}) error {
 	return goon.FromContext(c).Get(e)
 }
 
-func (d *Spear) GetMulti(c context.Context, es interface{}) error {
+func (s *Spear) GetMulti(c context.Context, es interface{}) error {
 	return goon.FromContext(c).GetMulti(es)
 }
 
-func (d *Spear) Count(c context.Context, q *datastore.Query) (int, error) {
+func (s *Spear) Count(c context.Context, q *datastore.Query) (int, error) {
 	return goon.FromContext(c).Count(q)
 }
 
-func (d *Spear) GetAll(c context.Context, q *datastore.Query, es interface{}) error {
+func (s *Spear) GetAll(c context.Context, q *datastore.Query, es interface{}) error {
 	_, err := goon.FromContext(c).GetAll(q, es)
 	return err
 }
 
-func (d *Spear) RunInTransaction(c context.Context, f func(tg *goon.Goon) error, opts *datastore.TransactionOptions) error {
+func (s *Spear) RunInTransaction(c context.Context, f func(tg *goon.Goon) error, opts *datastore.TransactionOptions) error {
 	return goon.FromContext(c).RunInTransaction(f, opts)
 }
 
-func (d *Spear) FlushLocalCache(c context.Context) {
+func (s *Spear) FlushLocalCache(c context.Context) {
 	goon.FromContext(c).FlushLocalCache()
 }
 
-func (d *Spear) Delete(c context.Context, e interface{}) error {
+func (s *Spear) Delete(c context.Context, e interface{}) error {
 	g := goon.FromContext(c)
 	return g.Delete(g.Key(e))
 }
 
-func (d *Spear) DeleteMulti(c context.Context, es ...interface{}) error {
+func (s *Spear) DeleteMulti(c context.Context, es ...interface{}) error {
 	g := goon.FromContext(c)
 	ks := make([]*datastore.Key, len(es))
 	for i := range es {
@@ -63,17 +69,17 @@ func (d *Spear) DeleteMulti(c context.Context, es ...interface{}) error {
 	return g.DeleteMulti(ks)
 }
 
-func (d *Spear) Put(c context.Context, e interface{}) error {
-	if id, ok := e.(Identifier); ok {
-		if err := d.SetID(c, id); err != nil {
+func (s *Spear) Put(c context.Context, e interface{}) error {
+	if i, ok := e.(Identifier); ok {
+		if err := s.SetID(c, i); err != nil {
 			return err
 		}
 	}
 	if ts, ok := e.(TimeStamper); ok {
-		d.SetTimeStamps(ts, d.Now())
+		s.SetTimeStamps(ts, s.Now())
 	}
-	if d.Validation != nil {
-		if err := d.Validation(c, e); err != nil {
+	if s.Validator != nil {
+		if err := s.Validator.Validate(c, e); err != nil {
 			return err
 		}
 	}
@@ -81,20 +87,20 @@ func (d *Spear) Put(c context.Context, e interface{}) error {
 	return err
 }
 
-func (d *Spear) PutMulti(c context.Context, es ...interface{}) error {
-	now := d.Now()
-	valid := d.Validation != nil
+func (s *Spear) PutMulti(c context.Context, es ...interface{}) error {
+	now := s.Now()
+	valid := s.Validator != nil
 	for i := range es {
 		if id, ok := es[i].(Identifier); ok {
-			if err := d.SetID(c, id); err != nil {
+			if err := s.SetID(c, id); err != nil {
 				return err
 			}
 		}
 		if ts, ok := es[i].(TimeStamper); ok {
-			d.SetTimeStamps(ts, now)
+			s.SetTimeStamps(ts, now)
 		}
 		if valid {
-			if err := d.Validation(c, es[i]); err != nil {
+			if err := s.Validator.Validate(c, es[i]); err != nil {
 				return err
 			}
 		}
@@ -103,13 +109,13 @@ func (d *Spear) PutMulti(c context.Context, es ...interface{}) error {
 	return err
 }
 
-func (d *Spear) SetID(c context.Context, e Identifier) error {
+func (s *Spear) SetID(c context.Context, e Identifier) error {
 	id := e.GetID()
 	if id != "" {
 		e.SetID(id)
 		return nil
 	}
-	newID, err := d.GenerateID(c)
+	newID, err := s.IdentifyGenerator.Generate(c)
 	if err != nil {
 		return err
 	}
@@ -117,11 +123,11 @@ func (d *Spear) SetID(c context.Context, e Identifier) error {
 	return nil
 }
 
-func (d *Spear) Now() time.Time {
+func (s *Spear) Now() time.Time {
 	return time.Now().UTC().Truncate(time.Millisecond)
 }
 
-func (d *Spear) SetTimeStamps(ts TimeStamper, t time.Time) {
+func (s *Spear) SetTimeStamps(ts TimeStamper, t time.Time) {
 	if ts.GetCreatedAt().IsZero() {
 		ts.SetCreatedAt(t)
 	}
