@@ -84,12 +84,23 @@ func run(m *testing.M) int {
 		os.Exit(1)
 	}
 
-	s = &Spear{
-		IdentifyGenerator: &IG{R: strings.NewReader(appengine.InstanceID())},
-		Validator:         &V{V: validator.New()},
+	s, err = NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, &V{V: validator.New()})
+	if err != nil {
+		fmt.Fprint(os.Stderr, "failed to generate spear - error =", err.Error())
+		os.Exit(1)
 	}
 
 	return m.Run()
+}
+
+func TestNewSpear(t *testing.T) {
+	s, err := NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, &V{V: validator.New()})
+	require.NoError(t, err)
+	assert.NotNil(t, s)
+	_, err = NewSpear(nil, &V{V: validator.New()})
+	require.Error(t, err)
+	_, err = NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, nil)
+	require.NoError(t, err)
 }
 
 func TestSpear(t *testing.T) {

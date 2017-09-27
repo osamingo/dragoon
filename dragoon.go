@@ -1,6 +1,7 @@
 package dragoon
 
 import (
+	"errors"
 	"time"
 
 	"github.com/mjibson/goon"
@@ -25,10 +26,23 @@ type (
 		Validate(context.Context, interface{}) error
 	}
 	Spear struct {
-		IdentifyGenerator IdentifyGenerator
-		Validator         Validator
+		ig IdentifyGenerator
+		v  Validator
 	}
 )
+
+func NewSpear(ig IdentifyGenerator, v Validator) (*Spear, error) {
+	if ig == nil {
+		return nil, errors.New("dragoon: invalid argument - IdentifyGenerator should not be nil")
+	}
+	if v == nil {
+		return nil, errors.New("dragoon: invalid argument - Validator should not be nil")
+	}
+	return &Spear{
+		ig: ig,
+		v:  v,
+	}, nil
+}
 
 func (s *Spear) Get(c context.Context, e interface{}) error {
 	return goon.FromContext(c).Get(e)
@@ -78,10 +92,8 @@ func (s *Spear) Put(c context.Context, e interface{}) error {
 	if ts, ok := e.(TimeStamper); ok {
 		s.SetTimeStamps(ts, s.Now())
 	}
-	if s.Validator != nil {
-		if err := s.Validator.Validate(c, e); err != nil {
-			return err
-		}
+	if err := s.v.Validate(c, e); err != nil {
+		return err
 	}
 	_, err := goon.FromContext(c).Put(e)
 	return err
@@ -89,7 +101,6 @@ func (s *Spear) Put(c context.Context, e interface{}) error {
 
 func (s *Spear) PutMulti(c context.Context, es ...interface{}) error {
 	now := s.Now()
-	valid := s.Validator != nil
 	for i := range es {
 		if id, ok := es[i].(Identifier); ok {
 			if err := s.SetID(c, id); err != nil {
@@ -99,10 +110,8 @@ func (s *Spear) PutMulti(c context.Context, es ...interface{}) error {
 		if ts, ok := es[i].(TimeStamper); ok {
 			s.SetTimeStamps(ts, now)
 		}
-		if valid {
-			if err := s.Validator.Validate(c, es[i]); err != nil {
-				return err
-			}
+		if err := s.v.Validate(c, es[i]); err != nil {
+			return err
 		}
 	}
 	_, err := goon.FromContext(c).PutMulti(es)
@@ -115,7 +124,7 @@ func (s *Spear) SetID(c context.Context, e Identifier) error {
 		e.SetID(id)
 		return nil
 	}
-	newID, err := s.IdentifyGenerator.Generate(c)
+	newID, err := s.ig.Generate(c)
 	if err != nil {
 		return err
 	}
