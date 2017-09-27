@@ -14,21 +14,21 @@ env:
 
 before_install:
   - if [ ! `which goapp` ]; then
-      wget -q https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.58.zip -O ${HOME}/go_appengine.zip;
+      wget -q https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.56.zip -O ${HOME}/go_appengine.zip;
       unzip -q -u -d ${HOME} ${HOME}/go_appengine.zip;
     fi
   - go get -u github.com/golang/dep/cmd/dep github.com/golang/lint/golint honnef.co/go/tools/cmd/staticcheck
 
 install:
-  - dep ensure -v
+  - dep ensure
 
 before_script:
   - go vet
-  - golint
+  - golint -set_exit_status=1
   - staticcheck
 
 script:
-  - go test -race -covermode=atomic -coverprofile=coverage.txt
+  - /home/travis/go_appengine/goroot-1.8/bin/goapp test -covermode=atomic -coverprofile=coverage.txt .
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
