@@ -2,14 +2,12 @@ package dragoon
 
 import (
 	"fmt"
-	"io"
+	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/icrowley/fake"
 	"github.com/mjibson/goon"
 	"github.com/oklog/ulid"
 	"github.com/stretchr/testify/assert"
@@ -30,10 +28,8 @@ type (
 		CreatedAt   time.Time `datastore:"created_at"`
 		UpdatedAt   time.Time `datastore:"updated_at"`
 	}
-	IG struct {
-		R io.Reader
-	}
-	V struct {
+	IG struct{}
+	V  struct {
 		V *validator.Validate
 	}
 )
@@ -64,7 +60,7 @@ func (e *Entity) SetUpdatedAt(t time.Time) {
 }
 
 func (ig *IG) Generate(context.Context) (string, error) {
-	id, err := ulid.New(ulid.Now(), ig.R)
+	id, err := ulid.New(ulid.Now(), rand.New(rand.NewSource(time.Now().UnixNano())))
 	if err != nil {
 		return "", err
 	}
@@ -87,7 +83,7 @@ func run(m *testing.M) int {
 		os.Exit(1)
 	}
 
-	s, err = NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, &V{V: validator.New()})
+	s, err = NewSpear(&IG{}, &V{V: validator.New()})
 	if err != nil {
 		fmt.Fprint(os.Stderr, "failed to generate spear - error =", err.Error())
 		os.Exit(1)
@@ -115,12 +111,12 @@ func newTestContext() (context.Context, error) {
 }
 
 func TestNewSpear(t *testing.T) {
-	s, err := NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, &V{V: validator.New()})
+	s, err := NewSpear(&IG{}, &V{})
 	require.NoError(t, err)
 	assert.NotNil(t, s)
-	_, err = NewSpear(nil, &V{V: validator.New()})
+	_, err = NewSpear(nil, &V{})
 	require.Error(t, err)
-	_, err = NewSpear(&IG{R: strings.NewReader(appengine.InstanceID())}, nil)
+	_, err = NewSpear(&IG{}, nil)
 	require.Error(t, err)
 }
 
@@ -131,7 +127,7 @@ func TestSpear(t *testing.T) {
 	s.FlushLocalCache(c)
 
 	src := &Entity{
-		Name: fake.FullName(),
+		Name: "Single_1",
 	}
 	require.NoError(t, s.Put(c, src))
 
@@ -160,10 +156,10 @@ func TestSpear_Multi(t *testing.T) {
 
 	src := []interface{}{
 		&Entity{
-			Name: fake.FullName(),
+			Name: "Multi_1",
 		},
 		&Entity{
-			Name: fake.FullName(),
+			Name: "Multi_2",
 		},
 	}
 
