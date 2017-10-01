@@ -38,12 +38,10 @@ type (
 	}
 )
 
-var ErrInvalidArgument = errors.New("dragoon: invalid arguments")
-
 // NewSpear returns new Spear.
 func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
 	if kind == "" || i == nil || v == nil {
-		return nil, ErrInvalidArgument
+		return nil, errors.New("dragoon: invalid arguments")
 	}
 	return &Spear{
 		kind:                kind,
