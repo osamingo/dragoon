@@ -15,6 +15,7 @@ import (
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine/datastore"
 	"gopkg.in/go-playground/validator.v9"
+	"github.com/pkg/errors"
 )
 
 type Entity struct {
@@ -85,15 +86,11 @@ func newTestContext() (context.Context, error) {
 }
 
 func TestNewSpear(t *testing.T) {
+	_, err := NewSpear("", false, identifier.DatastoreAllocate{}, validator.New())
+	require.Error(t, err)
 	s, err := NewSpear("test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.NoError(t, err)
 	assert.NotNil(t, s)
-	_, err = NewSpear("", false, identifier.DatastoreAllocate{}, validator.New())
-	require.Error(t, err)
-	_, err = NewSpear("test", false, nil, validator.New())
-	require.Error(t, err)
-	_, err = NewSpear("test", false, identifier.DatastoreAllocate{}, nil)
-	require.Error(t, err)
 }
 
 func TestSpear(t *testing.T) {
@@ -155,6 +152,6 @@ func TestSpearMulti(t *testing.T) {
 			ID: id2,
 		},
 	})
-	require.EqualError(t, err.(appengine.MultiError)[0], datastore.ErrNoSuchEntity.Error())
-	require.EqualError(t, err.(appengine.MultiError)[1], datastore.ErrNoSuchEntity.Error())
+	require.EqualError(t, errors.Cause(err).(appengine.MultiError)[0], datastore.ErrNoSuchEntity.Error())
+	require.EqualError(t, errors.Cause(err).(appengine.MultiError)[1], datastore.ErrNoSuchEntity.Error())
 }

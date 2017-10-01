@@ -1,9 +1,9 @@
 package dragoon
 
 import (
-	"errors"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
@@ -38,16 +38,12 @@ type (
 	}
 )
 
+var ErrInvalidArgument = errors.New("dragoon: invalid arguments")
+
 // NewSpear returns new Spear.
 func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
-	if kind == "" {
-		return nil, errors.New("dragoon: invalid argument - kind should not be empty")
-	}
-	if i == nil {
-		return nil, errors.New("dragoon: invalid argument - IdentifyGenerator should not be nil")
-	}
-	if v == nil {
-		return nil, errors.New("dragoon: invalid argument - Validator should not be nil")
+	if kind == "" || i == nil || v == nil {
+		return nil, ErrInvalidArgument
 	}
 	return &Spear{
 		kind:                kind,
@@ -59,12 +55,13 @@ func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Vali
 
 // Get loads the entity based on e's key into e.
 func (s *Spear) Get(c context.Context, e Identifier) error {
-	err := datastore.Get(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
+	k := datastore.NewKey(c, s.kind, e.GetID(), 0, nil)
+	err := datastore.Get(c, k, e)
 	if err != nil {
 		if s.ignoreFieldMismatch && IsErrFieldMismatch(err) {
 			return nil
 		}
-		return err
+		return errors.Wrapf(err, "dragoon: failed to get an entity - key = %#v", k)
 	}
 	return nil
 }
@@ -84,7 +81,7 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 				}
 			}
 		}
-		return err
+		return errors.Wrapf(err, "dragoon: failed to get entities - keys = %#v", ks)
 	}
 	return nil
 }
@@ -92,16 +89,19 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 // Put saves the entity src into the datastore based on e's ID.
 func (s *Spear) Put(c context.Context, e Identifier) error {
 	if err := s.SetID(c, e); err != nil {
-		return err
+		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
 	if ts, ok := e.(TimeStamper); ok {
 		SetTimeStamps(ts, Now())
 	}
 	if err := s.validator.Struct(e); err != nil {
-		return err
+		return errors.Wrap(err, "dragoon: invalid validation")
 	}
-	_, err := datastore.Put(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
-	return err
+	k := datastore.NewKey(c, s.kind, e.GetID(), 0, nil)
+	if _, err := datastore.Put(c, k, e); err != nil {
+		return errors.Wrapf(err, "dragoon: failed to put an entity - key = %#v, entity = %#v", k, e)
+	}
+	return nil
 }
 
 // PutMulti is a batch version of Put.
@@ -110,23 +110,29 @@ func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
 		if err := s.SetID(c, es[i]); err != nil {
-			return err
+			return errors.Wrap(err, "dragoon: failed to generate ID")
 		}
 		if ts, ok := es[i].(TimeStamper); ok {
 			SetTimeStamps(ts, now)
 		}
 		if err := s.validator.Struct(es[i]); err != nil {
-			return err
+			return errors.Wrap(err, "dragoon: invalid validation")
 		}
 		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
 	}
-	_, err := datastore.PutMulti(c, ks, es)
-	return err
+	if _, err := datastore.PutMulti(c, ks, es); err != nil {
+		return errors.Wrapf(err, "dragoon: failed to put entities - keys = %#v, entities = %#v", ks, es)
+	}
+	return nil
 }
 
 // Delete deletes the entity for the given Identifier.
 func (s *Spear) Delete(c context.Context, e Identifier) error {
-	return datastore.Delete(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil))
+	k := datastore.NewKey(c, s.kind, e.GetID(), 0, nil)
+	if err := datastore.Delete(c, k); err != nil {
+		return errors.Wrapf(err, "dragoon: failed to delete an entity - key = %#v", k)
+	}
+	return nil
 }
 
 // DeleteMulti is a batch version of Delete.
@@ -135,7 +141,10 @@ func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
 	for i := range es {
 		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
 	}
-	return datastore.DeleteMulti(c, ks)
+	if err := datastore.DeleteMulti(c, ks); err != nil {
+		return errors.Wrapf(err, "dragoon: failed to delete entities - keys = %#v", ks)
+	}
+	return nil
 }
 
 // SetID sets ID. if ID is empty, set generated ID.
