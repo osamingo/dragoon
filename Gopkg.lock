@@ -26,16 +26,28 @@
   revision = "130e6b02ab059e7b717a096f397c5b60111cae74"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/howeyc/crc16"
+  packages = ["."]
+  revision = "96a97a1abb579c7ff1a8ffa77f2e72d1c314b57f"
+
+[[projects]]
+  branch = "master"
   name = "github.com/osamingo/indigo"
-  packages = ["base58"]
-  revision = "ed1f3a23b28b7cf5a7c44422d8a34f9ec97e20b2"
-  version = "v1.0.0"
+  packages = [".","base58"]
+  revision = "05816db15418766734f18a5d832d919ddf199bc3"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/sony/sonyflake"
+  packages = ["."]
+  revision = "fa881fb1052b152e977c41023052c2f2a1c475e9"
 
 [[projects]]
   name = "github.com/stretchr/testify"
@@ -64,6 +76,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "958508210ac76ae3f6bc798cbfd5660ea4b9d24980302ab90ee236ad23682655"
+  inputs-digest = "f9067f992dbfe91796bc5f6e708338a438561357016c218fc618ed06ec512be0"
   solver-name = "gps-cdcl"
   solver-version = 1

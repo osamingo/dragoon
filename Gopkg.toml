@@ -1,5 +1,13 @@
 [[constraint]]
   branch = "master"
+  name = "github.com/howeyc/crc16"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/osamingo/indigo"
+
+[[constraint]]
+  branch = "master"
   name = "google.golang.org/appengine"
 
 [[constraint]]
