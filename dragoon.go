@@ -61,7 +61,7 @@ func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Vali
 func (s *Spear) Get(c context.Context, e Identifier) error {
 	err := datastore.Get(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
 	if err != nil {
-		if s.ignoreFieldMismatch && errFieldMismatch(err) {
+		if s.ignoreFieldMismatch && IsErrFieldMismatch(err) {
 			return nil
 		}
 		return err
@@ -79,7 +79,7 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 	if err != nil {
 		if me, ok := err.(appengine.MultiError); ok {
 			for i := range me {
-				if s.ignoreFieldMismatch && errFieldMismatch(me[i]) {
+				if s.ignoreFieldMismatch && IsErrFieldMismatch(me[i]) {
 					me[i] = nil
 				}
 			}
@@ -95,7 +95,7 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 		return err
 	}
 	if ts, ok := e.(TimeStamper); ok {
-		s.SetTimeStamps(ts, s.Now())
+		SetTimeStamps(ts, Now())
 	}
 	if err := s.validator.Validate(c, e); err != nil {
 		return err
@@ -106,14 +106,14 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 
 // PutMulti is a batch version of Put.
 func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
-	now := s.Now()
+	now := Now()
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
 		if err := s.SetID(c, es[i]); err != nil {
 			return err
 		}
 		if ts, ok := es[i].(TimeStamper); ok {
-			s.SetTimeStamps(ts, now)
+			SetTimeStamps(ts, now)
 		}
 		if err := s.validator.Validate(c, es[i]); err != nil {
 			return err
@@ -154,19 +154,35 @@ func (s *Spear) SetID(c context.Context, e Identifier) error {
 }
 
 // Now returns current mills time by UTC.
-func (s *Spear) Now() time.Time {
+func Now() time.Time {
 	return time.Now().UTC().Truncate(time.Millisecond)
 }
 
 // SetTimeStamps sets a time to TimeStamper.
-func (s *Spear) SetTimeStamps(ts TimeStamper, t time.Time) {
+func SetTimeStamps(ts TimeStamper, t time.Time) {
 	if ts.GetCreatedAt().IsZero() {
 		ts.SetCreatedAt(t)
 	}
 	ts.SetUpdatedAt(t)
 }
 
-func errFieldMismatch(err error) bool {
+// IsErrFieldMismatch checks a type of datastore.ErrFieldMismatch or not.
+func IsErrFieldMismatch(err error) bool {
 	_, ok := err.(*datastore.ErrFieldMismatch)
 	return ok
+}
+
+// IsNotFound checks it's datastore.ErrNoSuchEntity or not.
+func IsNotFound(err error) bool {
+	return err == datastore.ErrNoSuchEntity
+}
+
+// FillID fills id fields.
+func FillID(ks []*datastore.Key, es []Identifier) {
+	for i := range ks {
+		if ks[i] == nil {
+			continue
+		}
+		es[i].SetID(ks[i].StringID())
+	}
 }
