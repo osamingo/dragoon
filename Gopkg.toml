@@ -8,6 +8,10 @@
 
 [[constraint]]
   branch = "master"
+  name = "github.com/pkg/errors"
+
+[[constraint]]
+  branch = "master"
   name = "google.golang.org/appengine"
 
 [[constraint]]
