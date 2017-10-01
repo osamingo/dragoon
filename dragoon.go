@@ -23,11 +23,11 @@ type (
 	}
 	// IdentifyGenerator gives generate of ID method.
 	IdentifyGenerator interface {
-		Generate(c context.Context, kind string) (string, error)
+		NextID(c context.Context, kind string) (string, error)
 	}
 	// Validator gives validate of fields method.
 	Validator interface {
-		Validate(c context.Context, src interface{}) error
+		Struct(target interface{}) error
 	}
 	// Spear has convenience methods with mjibson/goon.
 	Spear struct {
@@ -97,7 +97,7 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 	if ts, ok := e.(TimeStamper); ok {
 		SetTimeStamps(ts, Now())
 	}
-	if err := s.validator.Validate(c, e); err != nil {
+	if err := s.validator.Struct(e); err != nil {
 		return err
 	}
 	_, err := datastore.Put(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
@@ -115,7 +115,7 @@ func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 		if ts, ok := es[i].(TimeStamper); ok {
 			SetTimeStamps(ts, now)
 		}
-		if err := s.validator.Validate(c, es[i]); err != nil {
+		if err := s.validator.Struct(es[i]); err != nil {
 			return err
 		}
 		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
@@ -145,7 +145,7 @@ func (s *Spear) SetID(c context.Context, e Identifier) error {
 		e.SetID(id)
 		return nil
 	}
-	newID, err := s.identifyGenerator.Generate(c, s.kind)
+	newID, err := s.identifyGenerator.NextID(c, s.kind)
 	if err != nil {
 		return err
 	}

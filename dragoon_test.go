@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/osamingo/indigo/base58"
+	"github.com/osamingo/dragoon/identifier"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -17,19 +17,13 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 )
 
-type (
-	Entity struct {
-		ID          string    `datastore:"-" valid:"min=1,max=11"`
-		Name        string    `datastore:"name" valid:"required"`
-		Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
-		CreatedAt   time.Time `datastore:"created_at"`
-		UpdatedAt   time.Time `datastore:"updated_at"`
-	}
-	IG struct{}
-	V  struct {
-		V *validator.Validate
-	}
-)
+type Entity struct {
+	ID          string    `datastore:"-" valid:"min=1,max=11"`
+	Name        string    `datastore:"name" valid:"required"`
+	Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
+	CreatedAt   time.Time `datastore:"created_at"`
+	UpdatedAt   time.Time `datastore:"updated_at"`
+}
 
 var (
 	inst aetest.Instance
@@ -56,18 +50,6 @@ func (e *Entity) SetUpdatedAt(t time.Time) {
 	e.UpdatedAt = t
 }
 
-func (ig *IG) Generate(c context.Context, kind string) (string, error) {
-	id, _, err := datastore.AllocateIDs(c, kind, nil, 1)
-	if err != nil {
-		return "", err
-	}
-	return base58.StdEncoding.Encode(uint64(id)), nil
-}
-
-func (v *V) Validate(c context.Context, i interface{}) error {
-	return v.V.StructCtx(c, i)
-}
-
 func TestMain(m *testing.M) {
 	os.Exit(run(m))
 }
@@ -75,7 +57,7 @@ func TestMain(m *testing.M) {
 func run(m *testing.M) int {
 
 	var err error
-	s, err = NewSpear("test", true, &IG{}, &V{V: validator.New()})
+	s, err = NewSpear("test", true, identifier.DatastoreAllocate{}, validator.New())
 	if err != nil {
 		fmt.Fprint(os.Stderr, "failed to generate spear - error =", err.Error())
 		os.Exit(1)
@@ -103,14 +85,14 @@ func newTestContext() (context.Context, error) {
 }
 
 func TestNewSpear(t *testing.T) {
-	s, err := NewSpear("test", false, &IG{}, &V{})
+	s, err := NewSpear("test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.NoError(t, err)
 	assert.NotNil(t, s)
-	_, err = NewSpear("", false, nil, &V{})
+	_, err = NewSpear("", false, identifier.DatastoreAllocate{}, validator.New())
 	require.Error(t, err)
-	_, err = NewSpear("test", false, nil, &V{})
+	_, err = NewSpear("test", false, nil, validator.New())
 	require.Error(t, err)
-	_, err = NewSpear("test", false, &IG{}, nil)
+	_, err = NewSpear("test", false, identifier.DatastoreAllocate{}, nil)
 	require.Error(t, err)
 }
 
