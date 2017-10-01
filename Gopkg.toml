@@ -1,0 +1,7 @@
+[[constraint]]
+  branch = "master"
+  name = "google.golang.org/appengine"
+
+[[constraint]]
+  name = "gopkg.in/go-playground/validator.v9"
+  version = "9.7.0"
