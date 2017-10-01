@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mjibson/goon"
 	"golang.org/x/net/context"
+	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 )
 
@@ -23,119 +23,119 @@ type (
 	}
 	// IdentifyGenerator gives generate of ID method.
 	IdentifyGenerator interface {
-		Generate(context.Context) (string, error)
+		Generate(c context.Context, kind string) (string, error)
 	}
 	// Validator gives validate of fields method.
 	Validator interface {
-		Validate(context.Context, interface{}) error
+		Validate(c context.Context, src interface{}) error
 	}
 	// Spear has convenience methods with mjibson/goon.
 	Spear struct {
-		ig IdentifyGenerator
-		v  Validator
+		kind                string
+		ignoreFieldMismatch bool
+		identifyGenerator   IdentifyGenerator
+		validator           Validator
 	}
 )
 
 // NewSpear returns new Spear.
-func NewSpear(ig IdentifyGenerator, v Validator) (*Spear, error) {
-	if ig == nil {
+func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
+	if kind == "" {
+		return nil, errors.New("dragoon: invalid argument - kind should not be empty")
+	}
+	if i == nil {
 		return nil, errors.New("dragoon: invalid argument - IdentifyGenerator should not be nil")
 	}
 	if v == nil {
 		return nil, errors.New("dragoon: invalid argument - Validator should not be nil")
 	}
 	return &Spear{
-		ig: ig,
-		v:  v,
+		kind:                kind,
+		ignoreFieldMismatch: ignoreFieldMismatch,
+		identifyGenerator:   i,
+		validator:           v,
 	}, nil
 }
 
-// Get loads the entity based on dst's key into dst
-// If there is no such entity for the key, Get returns
-// datastore.ErrNoSuchEntity.
-func (s *Spear) Get(c context.Context, e interface{}) error {
-	return goon.FromContext(c).Get(e)
+// Get loads the entity based on e's key into e.
+func (s *Spear) Get(c context.Context, e Identifier) error {
+	err := datastore.Get(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
+	if err != nil {
+		if s.ignoreFieldMismatch && errFieldMismatch(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // GetMulti is a batch version of Get.
-func (s *Spear) GetMulti(c context.Context, es interface{}) error {
-	return goon.FromContext(c).GetMulti(es)
-}
-
-// Count returns the number of results for the query.
-func (s *Spear) Count(c context.Context, q *datastore.Query) (int, error) {
-	return goon.FromContext(c).Count(q)
-}
-
-// GetAll runs the query and returns all the keys that match the query, as well
-// as appending the values to dst, setting the goon key fields of dst, and
-// caching the returned data in local memory.
-func (s *Spear) GetAll(c context.Context, q *datastore.Query, es interface{}) error {
-	_, err := goon.FromContext(c).GetAll(q, es)
-	return err
-}
-
-// RunInTransaction runs f in a transaction.
-func (s *Spear) RunInTransaction(c context.Context, f func(g *goon.Goon) error, o *datastore.TransactionOptions) error {
-	return goon.FromContext(c).RunInTransaction(f, o)
-}
-
-// FlushLocalCache clears the local memory cache.
-func (s *Spear) FlushLocalCache(c context.Context) {
-	goon.FromContext(c).FlushLocalCache()
-}
-
-// Delete deletes the entity for the given goon entity with kind and id.
-func (s *Spear) Delete(c context.Context, e interface{}) error {
-	g := goon.FromContext(c)
-	return g.Delete(g.Key(e))
-}
-
-// DeleteMulti is a batch version of Delete.
-func (s *Spear) DeleteMulti(c context.Context, es ...interface{}) error {
-	g := goon.FromContext(c)
-	ks := make([]*datastore.Key, len(es))
+func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
+	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
-		ks[i] = g.Key(es[i])
+		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
 	}
-	return g.DeleteMulti(ks)
+	err := datastore.GetMulti(c, ks, es)
+	if err != nil {
+		if me, ok := err.(appengine.MultiError); ok {
+			for i := range me {
+				if s.ignoreFieldMismatch && errFieldMismatch(me[i]) {
+					me[i] = nil
+				}
+			}
+		}
+		return err
+	}
+	return nil
 }
 
-// Put saves the entity src into the datastore based on e's key k.
-func (s *Spear) Put(c context.Context, e interface{}) error {
-	if i, ok := e.(Identifier); ok {
-		if err := s.SetID(c, i); err != nil {
-			return err
-		}
+// Put saves the entity src into the datastore based on e's ID.
+func (s *Spear) Put(c context.Context, e Identifier) error {
+	if err := s.SetID(c, e); err != nil {
+		return err
 	}
 	if ts, ok := e.(TimeStamper); ok {
 		s.SetTimeStamps(ts, s.Now())
 	}
-	if err := s.v.Validate(c, e); err != nil {
+	if err := s.validator.Validate(c, e); err != nil {
 		return err
 	}
-	_, err := goon.FromContext(c).Put(e)
+	_, err := datastore.Put(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil), e)
 	return err
 }
 
 // PutMulti is a batch version of Put.
-func (s *Spear) PutMulti(c context.Context, es ...interface{}) error {
+func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 	now := s.Now()
+	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
-		if id, ok := es[i].(Identifier); ok {
-			if err := s.SetID(c, id); err != nil {
-				return err
-			}
+		if err := s.SetID(c, es[i]); err != nil {
+			return err
 		}
 		if ts, ok := es[i].(TimeStamper); ok {
 			s.SetTimeStamps(ts, now)
 		}
-		if err := s.v.Validate(c, es[i]); err != nil {
+		if err := s.validator.Validate(c, es[i]); err != nil {
 			return err
 		}
+		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
 	}
-	_, err := goon.FromContext(c).PutMulti(es)
+	_, err := datastore.PutMulti(c, ks, es)
 	return err
+}
+
+// Delete deletes the entity for the given Identifier.
+func (s *Spear) Delete(c context.Context, e Identifier) error {
+	return datastore.Delete(c, datastore.NewKey(c, s.kind, e.GetID(), 0, nil))
+}
+
+// DeleteMulti is a batch version of Delete.
+func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
+	ks := make([]*datastore.Key, 0, len(es))
+	for i := range es {
+		ks = append(ks, datastore.NewKey(c, s.kind, es[i].GetID(), 0, nil))
+	}
+	return datastore.DeleteMulti(c, ks)
 }
 
 // SetID sets ID. if ID is empty, set generated ID.
@@ -145,7 +145,7 @@ func (s *Spear) SetID(c context.Context, e Identifier) error {
 		e.SetID(id)
 		return nil
 	}
-	newID, err := s.ig.Generate(c)
+	newID, err := s.identifyGenerator.Generate(c, s.kind)
 	if err != nil {
 		return err
 	}
@@ -164,4 +164,9 @@ func (s *Spear) SetTimeStamps(ts TimeStamper, t time.Time) {
 		ts.SetCreatedAt(t)
 	}
 	ts.SetUpdatedAt(t)
+}
+
+func errFieldMismatch(err error) bool {
+	_, ok := err.(*datastore.ErrFieldMismatch)
+	return ok
 }

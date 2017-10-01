@@ -2,14 +2,12 @@ package dragoon
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/mjibson/goon"
-	"github.com/oklog/ulid"
+	"github.com/osamingo/indigo/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -21,8 +19,7 @@ import (
 
 type (
 	Entity struct {
-		_kind       string    `datastore:"-" goon:"kind,TestKind"`
-		ID          string    `datastore:"-" valid:"len=26" goon:"id" `
+		ID          string    `datastore:"-" valid:"min=1,max=11"`
 		Name        string    `datastore:"name" valid:"required"`
 		Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
 		CreatedAt   time.Time `datastore:"created_at"`
@@ -59,12 +56,12 @@ func (e *Entity) SetUpdatedAt(t time.Time) {
 	e.UpdatedAt = t
 }
 
-func (ig *IG) Generate(context.Context) (string, error) {
-	id, err := ulid.New(ulid.Now(), rand.New(rand.NewSource(time.Now().UnixNano())))
+func (ig *IG) Generate(c context.Context, kind string) (string, error) {
+	id, _, err := datastore.AllocateIDs(c, kind, nil, 1)
 	if err != nil {
 		return "", err
 	}
-	return id.String(), nil
+	return base58.StdEncoding.Encode(uint64(id)), nil
 }
 
 func (v *V) Validate(c context.Context, i interface{}) error {
@@ -77,13 +74,8 @@ func TestMain(m *testing.M) {
 
 func run(m *testing.M) int {
 
-	err := os.Setenv("GAE_MODULE_INSTANCE", "test-instance-id")
-	if err != nil {
-		fmt.Fprint(os.Stderr, "failed to set environment value - error =", err.Error())
-		os.Exit(1)
-	}
-
-	s, err = NewSpear(&IG{}, &V{V: validator.New()})
+	var err error
+	s, err = NewSpear("test", true, &IG{}, &V{V: validator.New()})
 	if err != nil {
 		fmt.Fprint(os.Stderr, "failed to generate spear - error =", err.Error())
 		os.Exit(1)
@@ -111,12 +103,14 @@ func newTestContext() (context.Context, error) {
 }
 
 func TestNewSpear(t *testing.T) {
-	s, err := NewSpear(&IG{}, &V{})
+	s, err := NewSpear("test", false, &IG{}, &V{})
 	require.NoError(t, err)
 	assert.NotNil(t, s)
-	_, err = NewSpear(nil, &V{})
+	_, err = NewSpear("", false, nil, &V{})
 	require.Error(t, err)
-	_, err = NewSpear(&IG{}, nil)
+	_, err = NewSpear("test", false, nil, &V{})
+	require.Error(t, err)
+	_, err = NewSpear("test", false, &IG{}, nil)
 	require.Error(t, err)
 }
 
@@ -124,37 +118,27 @@ func TestSpear(t *testing.T) {
 
 	c, err := newTestContext()
 	require.NoError(t, err)
-	s.FlushLocalCache(c)
 
 	src := &Entity{
 		Name: "Single_1",
 	}
 	require.NoError(t, s.Put(c, src))
 
-	cnt, err := s.Count(c, datastore.NewQuery(goon.FromContext(c).Kind(Entity{})))
-	require.NoError(t, err)
-	assert.Equal(t, 1, cnt)
-
 	dst := &Entity{
-		ID: src.GetID(),
+		ID: src.ID,
 	}
 	require.NoError(t, s.Get(c, dst))
 	assert.EqualValues(t, src, dst)
 
 	require.NoError(t, s.Delete(c, dst))
-	err = s.RunInTransaction(c, func(g *goon.Goon) error {
-		return s.Get(c, &Entity{ID: dst.ID})
-	}, nil)
-	require.EqualError(t, err, datastore.ErrNoSuchEntity.Error())
 }
 
-func TestSpear_Multi(t *testing.T) {
+func TestSpearMulti(t *testing.T) {
 
 	c, err := newTestContext()
 	require.NoError(t, err)
-	s.FlushLocalCache(c)
 
-	src := []interface{}{
+	src := []Identifier{
 		&Entity{
 			Name: "Multi_1",
 		},
@@ -163,15 +147,15 @@ func TestSpear_Multi(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, s.PutMulti(c, src...))
+	require.NoError(t, s.PutMulti(c, src))
 
 	id1 := src[0].(Identifier).GetID()
 	id2 := src[1].(Identifier).GetID()
-	dst := []*Entity{
-		{
+	dst := []Identifier{
+		&Entity{
 			ID: id1,
 		},
-		{
+		&Entity{
 			ID: id2,
 		},
 	}
@@ -179,12 +163,16 @@ func TestSpear_Multi(t *testing.T) {
 	assert.EqualValues(t, src[0], dst[0])
 	assert.EqualValues(t, src[1], dst[1])
 
-	dst = []*Entity{}
-	err = s.GetAll(c, datastore.NewQuery(goon.FromContext(c).Kind(Entity{})), &dst)
-	require.NoError(t, err)
+	require.NoError(t, s.DeleteMulti(c, dst))
 
-	require.NoError(t, s.DeleteMulti(c, []interface{}{dst[0], dst[1]}...))
-	err = s.GetMulti(c, []*Entity{{ID: id1}, {ID: id2}})
+	err = s.GetMulti(c, []Identifier{
+		&Entity{
+			ID: id1,
+		},
+		&Entity{
+			ID: id2,
+		},
+	})
 	require.EqualError(t, err.(appengine.MultiError)[0], datastore.ErrNoSuchEntity.Error())
 	require.EqualError(t, err.(appengine.MultiError)[1], datastore.ErrNoSuchEntity.Error())
 }
