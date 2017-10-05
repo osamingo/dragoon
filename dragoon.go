@@ -29,7 +29,7 @@ type (
 	Validator interface {
 		Struct(target interface{}) error
 	}
-	// Spear has convenience methods with mjibson/goon.
+	// Spear has convenience methods.
 	Spear struct {
 		kind                string
 		ignoreFieldMismatch bool
@@ -86,7 +86,7 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 
 // Put saves the entity src into the datastore based on e's ID.
 func (s *Spear) Put(c context.Context, e Identifier) error {
-	if err := s.SetID(c, e); err != nil {
+	if err := s.CheckID(c, e); err != nil {
 		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
 	if ts, ok := e.(TimeStamper); ok {
@@ -107,8 +107,8 @@ func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 	now := Now()
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
-		if err := s.SetID(c, es[i]); err != nil {
-			return errors.Wrap(err, "dragoon: failed to generate ID")
+		if err := s.CheckID(c, es[i]); err != nil {
+			return errors.Wrap(err, "dragoon: failed to generate new ID")
 		}
 		if ts, ok := es[i].(TimeStamper); ok {
 			SetTimeStamps(ts, now)
@@ -145,8 +145,8 @@ func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
 	return nil
 }
 
-// SetID sets ID. if ID is empty, set generated ID.
-func (s *Spear) SetID(c context.Context, e Identifier) error {
+// CheckID checks e's ID. if e's ID is empty, set generated new ID.
+func (s *Spear) CheckID(c context.Context, e Identifier) error {
 	id := e.GetID()
 	if id != "" {
 		e.SetID(id)
@@ -184,7 +184,7 @@ func IsNotFound(err error) bool {
 	return err == datastore.ErrNoSuchEntity
 }
 
-// FillID fills id fields.
+// FillID fills es's ID fields.
 func FillID(ks []*datastore.Key, es []Identifier) {
 	for i := range ks {
 		if ks[i] == nil {
