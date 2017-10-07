@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/osamingo/dragoon/identifier"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -15,7 +16,6 @@ import (
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine/datastore"
 	"gopkg.in/go-playground/validator.v9"
-	"github.com/pkg/errors"
 )
 
 type Entity struct {
@@ -102,6 +102,7 @@ func TestSpear(t *testing.T) {
 		Name: "Single_1",
 	}
 	require.NoError(t, s.Put(c, src))
+	require.EqualError(t, s.Save(c, src), ErrConflictEntity.Error())
 
 	dst := &Entity{
 		ID: src.ID,
@@ -154,4 +155,27 @@ func TestSpearMulti(t *testing.T) {
 	})
 	require.EqualError(t, errors.Cause(err).(appengine.MultiError)[0], datastore.ErrNoSuchEntity.Error())
 	require.EqualError(t, errors.Cause(err).(appengine.MultiError)[1], datastore.ErrNoSuchEntity.Error())
+}
+
+func TestIsNotFound(t *testing.T) {
+	require.True(t, IsNotFound(datastore.ErrNoSuchEntity))
+}
+
+func TestFillID(t *testing.T) {
+
+	c, err := newTestContext()
+	require.NoError(t, err)
+
+	ks := []*datastore.Key{
+		nil,
+		datastore.NewKey(c, "test", "test-id", 0, nil),
+	}
+	es := []Identifier{
+		&Entity{},
+		&Entity{},
+	}
+	FillID(ks, es)
+
+	assert.Empty(t, es[0].GetID())
+	assert.Equal(t, "test-id", es[1].GetID())
 }
