@@ -38,6 +38,9 @@ type (
 	}
 )
 
+// ErrConflictEntity is returned when an entity was conflict for a given key.
+var ErrConflictEntity = errors.New("dragoon: conflict entity")
+
 // NewSpear returns new Spear.
 func NewSpear(kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
 	if kind == "" || i == nil || v == nil {
@@ -143,6 +146,31 @@ func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
 		return errors.Wrapf(err, "dragoon: failed to delete entities - keys = %#v", ks)
 	}
 	return nil
+}
+
+// Save saves the entity src into the datastore based on e's ID after checks exist an entity based e's ID.
+func (s *Spear) Save(c context.Context, e Identifier) error {
+	if err := s.CheckID(c, e); err != nil {
+		return errors.Wrap(err, "dragoon: failed to generate ID")
+	}
+	if ts, ok := e.(TimeStamper); ok {
+		SetTimeStamps(ts, Now())
+	}
+	if err := s.validator.Struct(e); err != nil {
+		return errors.Wrap(err, "dragoon: invalid validation")
+	}
+	return datastore.RunInTransaction(c, func(tc context.Context) error {
+		k := datastore.NewKey(tc, s.kind, e.GetID(), 0, nil)
+		err := datastore.Get(tc, k, e)
+		switch err {
+		case nil:
+			return ErrConflictEntity
+		case datastore.ErrNoSuchEntity:
+			_, err := datastore.Put(tc, k, e)
+			return err
+		}
+		return err
+	}, nil)
 }
 
 // CheckID checks e's ID. if e's ID is empty, set generated new ID.
