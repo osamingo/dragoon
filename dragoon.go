@@ -166,8 +166,7 @@ func (s *Spear) Save(c context.Context, e Identifier) error {
 		case nil:
 			return ErrConflictEntity
 		case datastore.ErrNoSuchEntity:
-			_, err := datastore.Put(tc, k, e)
-			return err
+			_, err = datastore.Put(tc, k, e)
 		}
 		return err
 	}, nil)

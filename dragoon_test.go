@@ -111,6 +111,9 @@ func TestSpear(t *testing.T) {
 	assert.EqualValues(t, src, dst)
 
 	require.NoError(t, s.Delete(c, dst))
+
+	require.NoError(t, s.Save(c, src))
+	require.NoError(t, s.Delete(c, dst))
 }
 
 func TestSpearMulti(t *testing.T) {
