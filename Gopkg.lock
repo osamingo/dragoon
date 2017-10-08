@@ -26,6 +26,12 @@
   revision = "130e6b02ab059e7b717a096f397c5b60111cae74"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/howeyc/crc16"
   packages = ["."]
@@ -82,6 +88,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a56e8f3c41a6ecdeb8a76bfd6c705a5dd9d7a8e016294319ff9a655a4ac98fcf"
+  inputs-digest = "31e241908bff2a87e75eac69f623d33fa41ba517c67485855d6177513c156335"
   solver-name = "gps-cdcl"
   solver-version = 1
