@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 func run(m *testing.M) int {
 
 	var err error
-	s, err = NewSpear("test", true, identifier.DatastoreAllocate{}, validator.New())
+	s, err = NewSpear("test-ns", "test-kind", true, identifier.DatastoreAllocate{}, validator.New())
 	if err != nil {
 		fmt.Fprint(os.Stderr, "failed to generate spear - error =", err.Error())
 		os.Exit(1)
@@ -86,9 +86,11 @@ func newTestContext() (context.Context, error) {
 }
 
 func TestNewSpear(t *testing.T) {
-	_, err := NewSpear("", false, identifier.DatastoreAllocate{}, validator.New())
+	_, err := NewSpear("", "", false, identifier.DatastoreAllocate{}, validator.New())
 	require.Error(t, err)
-	s, err := NewSpear("test", false, identifier.DatastoreAllocate{}, validator.New())
+	s, err := NewSpear("+", "test", false, identifier.DatastoreAllocate{}, validator.New())
+	require.Error(t, err)
+	s, err = NewSpear("", "test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.NoError(t, err)
 	assert.NotNil(t, s)
 }

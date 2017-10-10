@@ -3,6 +3,8 @@ package dragoon
 import (
 	"time"
 
+	"regexp"
+
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
@@ -31,25 +33,31 @@ type (
 	}
 	// Spear has convenience methods.
 	Spear struct {
-		kind                Kind
+		namespace           string
+		kind                string
 		ignoreFieldMismatch bool
 		identifyGenerator   IdentifyGenerator
 		validator           Validator
 	}
-	// Kind is a kind of Cloud Datastore.
-	Kind string
 )
 
-// ErrConflictEntity is returned when an entity was conflict for a given key.
-var ErrConflictEntity = errors.New("dragoon: conflict entity")
+var (
+	// ErrConflictEntity is returned when an entity was conflict for a given key.
+	ErrConflictEntity = errors.New("dragoon: conflict entity")
+	nsReg             = regexp.MustCompile(`^[0-9A-Za-z._-]{0,100}$`)
+)
 
 // NewSpear returns new Spear.
-func NewSpear(k Kind, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
-	if k == "" || i == nil || v == nil {
+func NewSpear(namespace, kind string, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator) (*Spear, error) {
+	if kind == "" || i == nil || v == nil {
 		return nil, errors.New("dragoon: invalid arguments")
 	}
+	if namespace != "" && !nsReg.MatchString(namespace) {
+		return nil, errors.New("dragoon: invalid namespace")
+	}
 	return &Spear{
-		kind:                k,
+		namespace:           namespace,
+		kind:                kind,
 		ignoreFieldMismatch: ignoreFieldMismatch,
 		identifyGenerator:   i,
 		validator:           v,
@@ -58,6 +66,7 @@ func NewSpear(k Kind, ignoreFieldMismatch bool, i IdentifyGenerator, v Validator
 
 // Get loads the entity based on e's key into e.
 func (s *Spear) Get(c context.Context, e Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	k := datastore.NewKey(c, string(s.kind), e.GetID(), 0, nil)
 	err := datastore.Get(c, k, e)
 	if err != nil {
@@ -71,6 +80,7 @@ func (s *Spear) Get(c context.Context, e Identifier) error {
 
 // GetMulti is a batch version of Get.
 func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
 		ks = append(ks, datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil))
@@ -91,6 +101,7 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 
 // Put saves the entity src into the datastore based on e's ID.
 func (s *Spear) Put(c context.Context, e Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	if err := s.CheckID(c, e); err != nil {
 		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
@@ -109,6 +120,7 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 
 // PutMulti is a batch version of Put.
 func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	now := Now()
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
@@ -131,6 +143,7 @@ func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 
 // Delete deletes the entity for the given Identifier.
 func (s *Spear) Delete(c context.Context, e Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	k := datastore.NewKey(c, string(s.kind), e.GetID(), 0, nil)
 	if err := datastore.Delete(c, k); err != nil {
 		return errors.Wrapf(err, "dragoon: failed to delete an entity - key = %#v", k)
@@ -140,6 +153,7 @@ func (s *Spear) Delete(c context.Context, e Identifier) error {
 
 // DeleteMulti is a batch version of Delete.
 func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
 		ks = append(ks, datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil))
@@ -152,6 +166,7 @@ func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
 
 // Save saves the entity src into the datastore based on e's ID after checks exist an entity based e's ID.
 func (s *Spear) Save(c context.Context, e Identifier) error {
+	c = s.SetNamespaceIfNotEmpty(c)
 	if err := s.CheckID(c, e); err != nil {
 		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
@@ -187,6 +202,13 @@ func (s *Spear) CheckID(c context.Context, e Identifier) error {
 	}
 	e.SetID(newID)
 	return nil
+}
+
+func (s *Spear) SetNamespaceIfNotEmpty(c context.Context) context.Context {
+	if s.namespace != "" {
+		c, _ = appengine.Namespace(c, s.namespace)
+	}
+	return c
 }
 
 // Now returns current mills time by UTC.
