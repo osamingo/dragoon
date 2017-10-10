@@ -182,3 +182,21 @@ func TestFillID(t *testing.T) {
 	assert.Empty(t, es[0].GetID())
 	assert.Equal(t, "test-id", es[1].GetID())
 }
+
+func TestAsMap(t *testing.T) {
+
+	is := []Identifier{
+		&Entity{
+			ID: "item1",
+		},
+		&Entity{
+			ID: "item2",
+		},
+	}
+
+	m := AsMap(is)
+	require.NotNil(t, m)
+
+	assert.Equal(t, "item1", m["item1"].(*Entity).GetID())
+	assert.Equal(t, "item2", m["item2"].(*Entity).GetID())
+}

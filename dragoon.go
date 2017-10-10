@@ -220,3 +220,12 @@ func FillID(ks []*datastore.Key, es []Identifier) {
 		es[i].SetID(ks[i].StringID())
 	}
 }
+
+// AsMap converts a slice of identifiers to map.
+func AsMap(is []Identifier) map[string]interface{} {
+	m := make(map[string]interface{}, len(is))
+	for i := range is {
+		m[is[i].GetID()] = is[i]
+	}
+	return m
+}
