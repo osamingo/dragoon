@@ -1,9 +1,8 @@
 package dragoon
 
 import (
-	"time"
-
 	"regexp"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
