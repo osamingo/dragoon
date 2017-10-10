@@ -204,6 +204,7 @@ func (s *Spear) CheckID(c context.Context, e Identifier) error {
 	return nil
 }
 
+// SetNamespaceIfNotEmpty sets namespace to context if s.namespace not empty.
 func (s *Spear) SetNamespaceIfNotEmpty(c context.Context) context.Context {
 	if s.namespace != "" {
 		c, _ = appengine.Namespace(c, s.namespace)
