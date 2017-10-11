@@ -16,10 +16,12 @@ type (
 		GetID() string
 		SetID(string)
 	}
-	// TimeStamper gives getter for CreatedAt, setter for CreatedAt and UpdatedAt.
-	TimeStamper interface {
-		GetCreatedAt() time.Time
+	// CreateTimeStamper gives setter for CreatedAt.
+	CreateTimeStamper interface {
 		SetCreatedAt(time.Time)
+	}
+	// UpdateTimeStamper gives setter for UpdatedAt.
+	UpdateTimeStamper interface {
 		SetUpdatedAt(time.Time)
 	}
 	// IdentifyGenerator gives generate of ID method.
@@ -80,9 +82,9 @@ func (s *Spear) Get(c context.Context, e Identifier) error {
 // GetMulti is a batch version of Get.
 func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 	c = s.SetNamespaceIfNotEmpty(c)
-	ks := make([]*datastore.Key, 0, len(es))
+	ks := make([]*datastore.Key, len(es))
 	for i := range es {
-		ks = append(ks, datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil))
+		ks[i] = datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil)
 	}
 	err := datastore.GetMulti(c, ks, es)
 	if err != nil {
@@ -104,9 +106,7 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 	if err := s.CheckID(c, e); err != nil {
 		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
-	if ts, ok := e.(TimeStamper); ok {
-		SetTimeStamps(ts, Now())
-	}
+	SetTimeStamps(e, Now())
 	if err := s.validator.Struct(e); err != nil {
 		return errors.Wrap(err, "dragoon: invalid validation")
 	}
@@ -120,19 +120,17 @@ func (s *Spear) Put(c context.Context, e Identifier) error {
 // PutMulti is a batch version of Put.
 func (s *Spear) PutMulti(c context.Context, es []Identifier) error {
 	c = s.SetNamespaceIfNotEmpty(c)
+	ks := make([]*datastore.Key, len(es))
 	now := Now()
-	ks := make([]*datastore.Key, 0, len(es))
 	for i := range es {
 		if err := s.CheckID(c, es[i]); err != nil {
 			return errors.Wrap(err, "dragoon: failed to generate new ID")
 		}
-		if ts, ok := es[i].(TimeStamper); ok {
-			SetTimeStamps(ts, now)
-		}
+		SetTimeStamps(es[i], now)
 		if err := s.validator.Struct(es[i]); err != nil {
 			return errors.Wrap(err, "dragoon: invalid validation")
 		}
-		ks = append(ks, datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil))
+		ks[i] = datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil)
 	}
 	if _, err := datastore.PutMulti(c, ks, es); err != nil {
 		return errors.Wrapf(err, "dragoon: failed to put entities - keys = %#v, entities = %#v", ks, es)
@@ -153,9 +151,9 @@ func (s *Spear) Delete(c context.Context, e Identifier) error {
 // DeleteMulti is a batch version of Delete.
 func (s *Spear) DeleteMulti(c context.Context, es []Identifier) error {
 	c = s.SetNamespaceIfNotEmpty(c)
-	ks := make([]*datastore.Key, 0, len(es))
+	ks := make([]*datastore.Key, len(es))
 	for i := range es {
-		ks = append(ks, datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil))
+		ks[i] = datastore.NewKey(c, string(s.kind), es[i].GetID(), 0, nil)
 	}
 	if err := datastore.DeleteMulti(c, ks); err != nil {
 		return errors.Wrapf(err, "dragoon: failed to delete entities - keys = %#v", ks)
@@ -169,9 +167,7 @@ func (s *Spear) Save(c context.Context, e Identifier) error {
 	if err := s.CheckID(c, e); err != nil {
 		return errors.Wrap(err, "dragoon: failed to generate ID")
 	}
-	if ts, ok := e.(TimeStamper); ok {
-		SetTimeStamps(ts, Now())
-	}
+	SetTimeStamps(e, Now())
 	if err := s.validator.Struct(e); err != nil {
 		return errors.Wrap(err, "dragoon: invalid validation")
 	}
@@ -216,12 +212,14 @@ func Now() time.Time {
 	return time.Now().UTC().Truncate(time.Millisecond)
 }
 
-// SetTimeStamps sets a time to TimeStamper.
-func SetTimeStamps(ts TimeStamper, t time.Time) {
-	if ts.GetCreatedAt().IsZero() {
-		ts.SetCreatedAt(t)
+// SetTimeStamps sets a time to xTimeStampers.
+func SetTimeStamps(i interface{}, t time.Time) {
+	if c, ok := i.(CreateTimeStamper); ok {
+		c.SetCreatedAt(t)
 	}
-	ts.SetUpdatedAt(t)
+	if u, ok := i.(UpdateTimeStamper); ok {
+		u.SetUpdatedAt(t)
+	}
 }
 
 // IsErrFieldMismatch checks a type of datastore.ErrFieldMismatch or not.

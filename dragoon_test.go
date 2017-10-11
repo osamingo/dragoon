@@ -39,12 +39,10 @@ func (e *Entity) SetID(id string) {
 	e.ID = id
 }
 
-func (e *Entity) GetCreatedAt() time.Time {
-	return e.CreatedAt
-}
-
 func (e *Entity) SetCreatedAt(t time.Time) {
-	e.CreatedAt = t
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = t
+	}
 }
 
 func (e *Entity) SetUpdatedAt(t time.Time) {
