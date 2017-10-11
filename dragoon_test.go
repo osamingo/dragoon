@@ -50,6 +50,19 @@ func (e *Entity) SetUpdatedAt(t time.Time) {
 }
 
 func TestMain(m *testing.M) {
+	var e interface{} = &Entity{}
+	if _, ok := e.(Identifier); !ok {
+		fmt.Fprint(os.Stderr, "Identifier not implemented")
+		os.Exit(1)
+	}
+	if _, ok := e.(CreateTimeStamper); !ok {
+		fmt.Fprint(os.Stderr, "CreateTimeStamper not implemented")
+		os.Exit(1)
+	}
+	if _, ok := e.(UpdateTimeStamper); !ok {
+		fmt.Fprint(os.Stderr, "UpdateTimeStamper not implemented")
+		os.Exit(1)
+	}
 	os.Exit(run(m))
 }
 
