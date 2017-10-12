@@ -16,8 +16,9 @@ type (
 		GetID() string
 		SetID(string)
 	}
-	// CreateTimeStamper gives setter for CreatedAt.
+	// CreateTimeStamper gives getter and setter for CreatedAt.
 	CreateTimeStamper interface {
+		GetCreatedAt() time.Time
 		SetCreatedAt(time.Time)
 	}
 	// UpdateTimeStamper gives setter for UpdatedAt.
@@ -214,7 +215,7 @@ func Now() time.Time {
 
 // SetTimeStamps sets a time to xTimeStampers.
 func SetTimeStamps(i interface{}, t time.Time) {
-	if c, ok := i.(CreateTimeStamper); ok {
+	if c, ok := i.(CreateTimeStamper); ok && c.GetCreatedAt().IsZero() {
 		c.SetCreatedAt(t)
 	}
 	if u, ok := i.(UpdateTimeStamper); ok {
