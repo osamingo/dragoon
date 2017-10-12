@@ -101,7 +101,7 @@ func newTestContext() (context.Context, error) {
 func TestNewSpear(t *testing.T) {
 	_, err := NewSpear("", "", false, identifier.DatastoreAllocate{}, validator.New())
 	require.Error(t, err)
-	s, err := NewSpear("+", "test", false, identifier.DatastoreAllocate{}, validator.New())
+	_, err = NewSpear("+", "test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.Error(t, err)
 	s, err = NewSpear("", "test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.NoError(t, err)
