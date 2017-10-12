@@ -187,16 +187,15 @@ func (s *Spear) Save(c context.Context, e Identifier) error {
 
 // CheckID checks e's ID. if e's ID is empty, set generated new ID.
 func (s *Spear) CheckID(c context.Context, e Identifier) error {
-	id := e.GetID()
-	if id != "" {
+	if id := e.GetID(); id != "" {
 		e.SetID(id)
 		return nil
 	}
-	newID, err := s.identifyGenerator.NextID(c, string(s.kind))
+	id, err := s.identifyGenerator.NextID(c, string(s.kind))
 	if err != nil {
 		return err
 	}
-	e.SetID(newID)
+	e.SetID(id)
 	return nil
 }
 
