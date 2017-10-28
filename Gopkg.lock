@@ -10,8 +10,8 @@
 [[projects]]
   name = "github.com/go-playground/locales"
   packages = [".","currency"]
-  revision = "b860c92274dfb72f517b8b4c11c6d9f2f8cc9d91"
-  version = "v0.11.1"
+  revision = "e4cbcb5d0652150d40ad0646651076b6bd2be4f6"
+  version = "v0.11.2"
 
 [[projects]]
   name = "github.com/go-playground/universal-translator"
@@ -23,7 +23,7 @@
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "130e6b02ab059e7b717a096f397c5b60111cae74"
+  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
 
 [[projects]]
   name = "github.com/google/uuid"
@@ -47,7 +47,7 @@
   branch = "master"
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "2b3a18b5f0fb6b4f9190549597d3f962c02bc5eb"
+  revision = "f15c970de5b76fac0b59abb32d62c17cc7bed265"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -71,23 +71,23 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "0a9397675ba34b2845f758fe3cd68828369c6517"
+  revision = "c73622c77280266305273cb545f54516ced95b93"
 
 [[projects]]
   branch = "master"
   name = "google.golang.org/appengine"
   packages = [".","aetest","datastore","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api","internal/user","user"]
-  revision = "24e4144ec923c2374f6b06610c0df16a9222c3d9"
+  revision = "a2e0dc829727a4f957a7428b1f322805cfc1f362"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v9"
   packages = ["."]
-  revision = "a021b2ec9a8a8bb970f3f15bc42617cb520e8a64"
-  version = "v9.7.0"
+  revision = "1304298bf10d085adec514b076772a79c9cadb6b"
+  version = "v9.8.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "31e241908bff2a87e75eac69f623d33fa41ba517c67485855d6177513c156335"
+  inputs-digest = "94a098cbf8835696491c0ff5dca735d8290eadd8ad344753bf7b6e6557039101"
   solver-name = "gps-cdcl"
   solver-version = 1

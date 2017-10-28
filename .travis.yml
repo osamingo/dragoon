@@ -2,7 +2,13 @@ sudo: false
 
 language: go
 go:
-  - 1.8.3
+  - 1.8.5
+  - 1.9.2
+  - tip
+
+matrix:
+  allow_failures:
+  - go: tip
 
 cache:
   directories:
@@ -17,7 +23,7 @@ before_install:
       wget -q https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.58.zip -O ${HOME}/go_appengine.zip;
       unzip -q -u -d ${HOME} ${HOME}/go_appengine.zip;
     fi
-  - go get -u github.com/golang/dep/cmd/dep github.com/golang/lint/golint honnef.co/go/tools/cmd/staticcheck github.com/haya14busa/goverage
+  - go get -u github.com/golang/dep/cmd/dep github.com/golang/lint/golint honnef.co/go/tools/cmd/staticcheck
 
 install:
   - dep ensure
@@ -28,7 +34,7 @@ before_script:
   - staticcheck
 
 script:
-  - goverage -v -covermode=atomic -coverprofile=coverage.txt . ./identifier
+  - go test -covermode=atomic -coverprofile=coverage.txt
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
