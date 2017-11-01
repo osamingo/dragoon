@@ -20,15 +20,15 @@ import (
 
 type (
 	Entity struct {
-	ID          string    `datastore:"-" valid:"min=1,max=11"`
-	Name        string    `datastore:"name" valid:"required"`
-	Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
-	CreatedAt   time.Time `datastore:"created_at"`
-	UpdatedAt   time.Time `datastore:"updated_at"`
-	}
-	SlimEntity struct {
 		ID          string    `datastore:"-" valid:"min=1,max=11"`
 		Name        string    `datastore:"name" valid:"required"`
+		Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
+		CreatedAt   time.Time `datastore:"created_at"`
+		UpdatedAt   time.Time `datastore:"updated_at"`
+	}
+	SlimEntity struct {
+		ID   string `datastore:"-" valid:"min=1,max=11"`
+		Name string `datastore:"name" valid:"required"`
 	}
 )
 
