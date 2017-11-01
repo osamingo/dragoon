@@ -95,6 +95,9 @@ func (s *Spear) GetMulti(c context.Context, es []Identifier) error {
 					me[i] = nil
 				}
 			}
+			if err.Error() == "(0 errors)" {
+				return nil
+			}
 		}
 		return errors.Wrapf(err, "dragoon: failed to get entities - keys = %#v", ks)
 	}

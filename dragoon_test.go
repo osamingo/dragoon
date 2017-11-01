@@ -18,13 +18,19 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 )
 
-type Entity struct {
+type (
+	Entity struct {
 	ID          string    `datastore:"-" valid:"min=1,max=11"`
 	Name        string    `datastore:"name" valid:"required"`
 	Description string    `datastore:"description,omitempty,noindex" valid:"max=140"`
 	CreatedAt   time.Time `datastore:"created_at"`
 	UpdatedAt   time.Time `datastore:"updated_at"`
-}
+	}
+	SlimEntity struct {
+		ID          string    `datastore:"-" valid:"min=1,max=11"`
+		Name        string    `datastore:"name" valid:"required"`
+	}
+)
 
 var (
 	inst aetest.Instance
@@ -49,6 +55,14 @@ func (e *Entity) SetCreatedAt(t time.Time) {
 
 func (e *Entity) SetUpdatedAt(t time.Time) {
 	e.UpdatedAt = t
+}
+
+func (se *SlimEntity) GetID() string {
+	return se.ID
+}
+
+func (se *SlimEntity) SetID(id string) {
+	se.ID = id
 }
 
 func TestMain(m *testing.M) {
@@ -103,9 +117,9 @@ func TestNewSpear(t *testing.T) {
 	require.Error(t, err)
 	_, err = NewSpear("+", "test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.Error(t, err)
-	s, err = NewSpear("", "test", false, identifier.DatastoreAllocate{}, validator.New())
+	ss, err := NewSpear("", "test", false, identifier.DatastoreAllocate{}, validator.New())
 	require.NoError(t, err)
-	assert.NotNil(t, s)
+	assert.NotNil(t, ss)
 }
 
 func TestSpear(t *testing.T) {
@@ -125,10 +139,17 @@ func TestSpear(t *testing.T) {
 	require.NoError(t, s.Get(c, dst))
 	assert.EqualValues(t, src, dst)
 
+	ido := &SlimEntity{
+		ID: src.ID,
+	}
+	require.NoError(t, s.Get(c, ido))
+	assert.Equal(t, src.Name, ido.Name)
+
 	require.NoError(t, s.Delete(c, dst))
 
 	require.NoError(t, s.Save(c, src))
 	require.NoError(t, s.Delete(c, dst))
+
 }
 
 func TestSpearMulti(t *testing.T) {
@@ -160,6 +181,18 @@ func TestSpearMulti(t *testing.T) {
 	require.NoError(t, s.GetMulti(c, dst))
 	assert.EqualValues(t, src[0], dst[0])
 	assert.EqualValues(t, src[1], dst[1])
+
+	ido := []Identifier{
+		&SlimEntity{
+			ID: id1,
+		},
+		&SlimEntity{
+			ID: id2,
+		},
+	}
+	require.NoError(t, s.GetMulti(c, ido))
+	assert.Equal(t, src[0].(*Entity).Name, ido[0].(*SlimEntity).Name)
+	assert.Equal(t, src[1].(*Entity).Name, ido[1].(*SlimEntity).Name)
 
 	require.NoError(t, s.DeleteMulti(c, dst))
 
